@@ -53,29 +53,20 @@
         #message {
             display: none;
             font-size: 18px;
-            line-height: 1.5;
+            line-height: 1.6;
             padding: 20px;
-        }
-        
-        #message.error {
-            display: block;
-        }
-        
-        #message.success {
-            display: block;
-            color: var(--tg-theme-hint-color, #999);
-            font-size: 16px;
         }
         
         .button {
             display: inline-block;
-            margin-top: 20px;
-            padding: 12px 24px;
+            margin-top: 15px;
+            margin-right: 10px;
+            padding: 12px 20px;
             background-color: var(--tg-theme-button-color, #0088cc);
             color: var(--tg-theme-button-text-color, #ffffff);
             border: none;
             border-radius: 8px;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 500;
             cursor: pointer;
             text-decoration: none;
@@ -84,6 +75,86 @@
         
         .button:active {
             opacity: 0.8;
+        }
+        
+        .button-secondary {
+            background-color: var(--tg-theme-hint-color, #ccc);
+            color: var(--tg-theme-text-color, #000);
+            margin-top: 10px;
+        }
+        
+        .methods-container {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: rgba(0, 0, 0, 0.05);
+            border-radius: 8px;
+        }
+        
+        .method-item {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        
+        .method-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .method-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        .method-description {
+            font-size: 13px;
+            color: var(--tg-theme-hint-color, #999);
+            margin-bottom: 10px;
+        }
+        
+        .copy-button {
+            background-color: var(--tg-theme-button-color, #0088cc);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        
+        .copy-button:active {
+            opacity: 0.8;
+        }
+        
+        .copy-button.copied {
+            background-color: var(--tg-theme-hint-color, #ccc);
+        }
+        
+        .qr-container {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: white;
+            border-radius: 8px;
+            display: none;
+        }
+        
+        .qr-container.show {
+            display: block;
+        }
+        
+        .qr-image {
+            width: 200px;
+            height: 200px;
+            margin: 0 auto;
+        }
+        
+        .qr-description {
+            font-size: 12px;
+            color: var(--tg-theme-hint-color, #999);
+            margin-top: 10px;
         }
         
         .debug-info {
@@ -105,9 +176,11 @@
         <div id="debug-info" class="debug-info"></div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
         const BOT_USERNAME = 'celbretubot';
-        const BOT_LINK = `https://t.me/${BOT_USERNAME}`;
+        const BOT_LINK_HTTPS = `https://t.me/${BOT_USERNAME}`;
+        const BOT_LINK_TG = `tg://resolve?domain=${BOT_USERNAME}`;
         
         // Детекция платформы и браузера
         const getPlatform = () => {
@@ -117,21 +190,27 @@
             return 'web';
         };
         
-        const isWebView = () => {
+        const isOfficialTelegram = () => {
             const ua = navigator.userAgent;
-            return ua.includes('TelegramAndroid') || 
-                   ua.includes('TelegramIphone') ||
-                   ua.includes('Telegram');
+            return ua.includes('TelegramAndroid') || ua.includes('TelegramIphone');
         };
 
-        const showMessage = (text, isError = false) => {
+        const isStrangerClient = () => {
+            const ua = navigator.userAgent.toLowerCase();
+            return ua.includes('nekogram') || 
+                   ua.includes('swiftgram') ||
+                   ua.includes('ayugram') ||
+                   ua.includes('plus messenger') ||
+                   ua.includes('telebotapi');
+        };
+
+        const showMessage = (html) => {
             const loadingEl = document.getElementById('loading');
             const messageEl = document.getElementById('message');
             
             loadingEl.style.display = 'none';
             messageEl.style.display = 'block';
-            messageEl.className = isError ? 'error' : 'success';
-            messageEl.innerHTML = text;
+            messageEl.innerHTML = html;
         };
 
         const showDebugInfo = (info) => {
@@ -141,68 +220,132 @@
             }
         };
 
-        const openBotLink = async (platform) => {
-            try {
-                // Способ 1: webApp.openTelegramLink() - самый надёжный для Mini Apps
-                if (typeof Telegram !== 'undefined' && Telegram.WebApp?.openTelegramLink) {
-                    showDebugInfo(`Trying openTelegramLink (${platform})`);
-                    Telegram.WebApp.openTelegramLink(BOT_LINK);
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                    return true;
+        const copyToClipboard = (text, buttonId) => {
+            navigator.clipboard.writeText(text).then(() => {
+                const button = document.getElementById(buttonId);
+                if (button) {
+                    button.textContent = '✓ Скопировано!';
+                    button.classList.add('copied');
+                    setTimeout(() => {
+                        button.textContent = 'Копировать';
+                        button.classList.remove('copied');
+                    }, 2000);
                 }
+            }).catch(() => {
+                alert(`Юзернейм: ${text}`);
+            });
+        };
 
-                // Способ 2: Прямая Telegram ссылка (работает везде)
-                showDebugInfo(`Trying direct link (${platform})`);
-                window.location.href = BOT_LINK;
-                await new Promise(resolve => setTimeout(resolve, 500));
-                return true;
+        const generateQRCode = (text, containerId) => {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            
+            container.innerHTML = '';
+            
+            new QRCode(container, {
+                text: text,
+                width: 200,
+                height: 200,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+            });
+            
+            container.classList.add('show');
+        };
 
-            } catch (error) {
-                console.error('Error opening bot link:', error);
-                showDebugInfo(`Error: ${error.message}`);
-                return false;
-            }
+        const showAlternativeMethods = () => {
+            const html = `
+                <div class="methods-container">
+                    <div class="method-item">
+                        <div class="method-title">📱 Способ 1: Deep Link</div>
+                        <div class="method-description">Используйте приложение по умолчанию</div>
+                        <a href="${BOT_LINK_TG}" class="button button-secondary" style="display: block; margin-top: 8px;">
+                            Открыть в приложении
+                        </a>
+                    </div>
+                    
+                    <div class="method-item">
+                        <div class="method-title">📋 Способ 2: Копировать юзернейм</div>
+                        <div class="method-description">Скопируйте и найдите в своём клиенте</div>
+                        <button class="copy-button" id="copy-username-btn" onclick="copyToClipboard('${BOT_USERNAME}', 'copy-username-btn')">
+                            Копировать: @${BOT_USERNAME}
+                        </button>
+                    </div>
+                    
+                    <div class="method-item">
+                        <div class="method-title">🌐 Способ 3: Веб версия</div>
+                        <div class="method-description">Откройте в браузере или веб-версии</div>
+                        <a href="${BOT_LINK_HTTPS}" class="button button-secondary" style="display: block; margin-top: 8px;">
+                            Веб версия
+                        </a>
+                    </div>
+                    
+                    <div class="method-item">
+                        <div class="method-title">🔗 QR Код</div>
+                        <div class="method-description">Отсканируйте для быстрого открытия</div>
+                        <button class="copy-button" id="show-qr-btn" onclick="generateQRCode('${BOT_LINK_HTTPS}', 'qr-code'); document.getElementById('show-qr-btn').style.display = 'none';">
+                            Показать QR Код
+                        </button>
+                        <div id="qr-code" class="qr-container">
+                            <div class="qr-image"></div>
+                            <div class="qr-description">Отсканируйте этот код в любом клиенте Telegram</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            return html;
         };
 
         const handleStartParam = async (webApp, platform) => {
             const startParam = webApp.initDataUnsafe?.start_param || '';
+            const isOfficial = isOfficialTelegram();
+            const isStranger = isStrangerClient();
             
-            showDebugInfo(`Platform: ${platform}, StartParam: ${startParam || 'none'}`);
+            showDebugInfo(`Platform: ${platform}, Official: ${isOfficial}, Stranger: ${isStranger}, StartParam: ${startParam || 'none'}`);
 
+            // ТОЛЬКО если startParam === 'start' показываем методы редиректа
             if (startParam === 'start') {
-                showMessage('Переход на бота...');
-                
-                // Пытаемся открыть ссылку
-                const success = await openBotLink(platform);
-                
-                if (success || platform !== 'web') {
-                    // Для мобильных платформ закрываем приложение через 2 секунды
-                    // Для web - оставляем открытым (может работать fallback)
-                    if (platform !== 'web') {
-                        await new Promise(resolve => setTimeout(resolve, 2000));
-                        if (webApp.close) webApp.close();
+                if (isOfficial) {
+                    // Официальный Telegram - используем webApp API
+                    showMessage('Переход на бота...');
+                    
+                    try {
+                        if (webApp.openTelegramLink) {
+                            webApp.openTelegramLink(BOT_LINK_HTTPS);
+                            await new Promise(resolve => setTimeout(resolve, 2000));
+                            if (webApp.close) webApp.close();
+                        }
+                    } catch (error) {
+                        console.error('Error:', error);
+                        showMessage(
+                            `<strong>Ошибка перенаправления</strong><br><br>
+                            ${showAlternativeMethods()}`
+                        );
                     }
-                } else {
-                    // Fallback: показываем кнопку для ручного открытия
+                } else if (isStranger) {
+                    // Сторонний клиент - deep link может не работать
                     showMessage(
-                        `Не удалось перенаправить автоматически.<br><br>
-                        <a href="${BOT_LINK}" class="button">Открыть бота</a>`,
-                        false
+                        `<strong>⚠️ Обнаружен сторонний клиент Telegram</strong><br><br>
+                        Выберите способ для открытия бота:<br>
+                        ${showAlternativeMethods()}`
+                    );
+                } else {
+                    // Web или неизвестно
+                    showMessage(
+                        `<strong>Откройте бота</strong><br><br>
+                        ${showAlternativeMethods()}`
                     );
                 }
             } else {
-                // Техническое обслуживание или неправильный параметр
+                // БЕЗ startParam - только сообщение о техработах, БЕЗ кнопок
                 showMessage(
-                    `В приложении проводятся технические работы.<br>
-                    Пожалуйста, попробуйте позже.<br><br>
-                    <a href="${BOT_LINK}" class="button">Открыть бота</a>`,
-                    false
+                    `<strong>В приложении проводятся технические работы</strong><br>
+                    Пожалуйста, попробуйте позже.`
                 );
             }
         };
 
         function init() {
-            // Проверяем, загрузился ли Telegram WebApp API
             if (typeof Telegram === 'undefined' || !Telegram.WebApp) {
                 console.log('Telegram WebApp API not loaded yet, retrying...');
                 setTimeout(init, 100);
@@ -215,22 +358,18 @@
                 webApp.expand();
 
                 const platform = getPlatform();
-                const inWebView = isWebView();
-                
-                console.log(`Platform: ${platform}, WebView: ${inWebView}`);
+                console.log(`Platform: ${platform}`);
                 
                 handleStartParam(webApp, platform);
             } catch (error) {
                 console.error('Error in init:', error);
                 showMessage(
-                    `Ошибка инициализации приложения.<br><br>
-                    <a href="${BOT_LINK}" class="button">Открыть бота</a>`,
-                    true
+                    `<strong>Ошибка инициализации</strong><br>
+                    Пожалуйста, попробуйте позже.`
                 );
             }
         }
 
-        // Запускаем инициализацию когда DOM готов
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', init);
         } else {
