@@ -4,294 +4,112 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Telegram Mini App</title>
+    
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 100vh;
+            height: 100vh;
+            margin: 0;
             background-color: var(--tg-theme-bg-color, #ffffff);
             color: var(--tg-theme-text-color, #000000);
-            padding: 20px;
         }
-        
-        .container {
-            max-width: 340px;
-            text-align: center;
-        }
-        
         #loading {
             font-size: 20px;
             font-weight: 500;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 20px;
         }
-        
-        .spinner {
-            width: 40px;
-            height: 40px;
-            border: 3px solid rgba(0, 0, 0, 0.1);
-            border-top-color: var(--tg-theme-text-color, #000000);
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
         #message {
             display: none;
             font-size: 18px;
-            line-height: 1.6;
+            text-align: center;
             padding: 20px;
+            line-height: 1.5;
+            max-width: 340px;
         }
-        
-        .methods-container {
-            margin-top: 20px;
-            padding: 20px;
-            background-color: rgba(0, 0, 0, 0.05);
-            border-radius: 8px;
-        }
-        
-        .method-item {
-            margin-bottom: 15px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-        }
-        
-        .method-item:last-child {
-            border-bottom: none;
-            margin-bottom: 0;
-            padding-bottom: 0;
-        }
-        
-        .method-title {
-            font-weight: 600;
-            margin-bottom: 8px;
-            font-size: 14px;
-        }
-        
-        .method-description {
-            font-size: 13px;
-            color: var(--tg-theme-hint-color, #999);
-            margin-bottom: 10px;
-        }
-        
-        .button {
-            background-color: var(--tg-theme-button-color, #0088cc);
-            color: var(--tg-theme-button-text-color, #ffffff);
-            border: none;
-            padding: 12px 20px;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            text-decoration: none;
-            transition: opacity 0.2s;
-            display: block;
-            width: 100%;
-            margin-top: 8px;
-            box-sizing: border-box;
-        }
-        
-        .button:active {
-            opacity: 0.8;
-        }
-        
-        .copy-button {
-            background-color: var(--tg-theme-button-color, #0088cc);
-            color: var(--tg-theme-button-text-color, #ffffff);
-            border: none;
-            padding: 8px 16px;
-            border-radius: 6px;
-            font-size: 13px;
-            cursor: pointer;
-            transition: opacity 0.2s;
-        }
-        
-        .copy-button:active {
-            opacity: 0.8;
-        }
-        
-        .copy-button.copied {
-            background-color: var(--tg-theme-hint-color, #ccc);
-        }
-        
-        .debug-info {
-            margin-top: 30px;
-            padding-top: 20px;
-            border-top: 1px solid rgba(0, 0, 0, 0.1);
-            font-size: 12px;
-            color: var(--tg-theme-hint-color, #999);
+        #message a {
+            color: var(--tg-theme-link-color, #2481cc);
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div id="loading">
-            <div class="spinner"></div>
-            <div>Загрузка...</div>
-        </div>
-        <div id="message"></div>
-        <div id="debug-info" class="debug-info"></div>
-    </div>
+    <div id="loading">Загрузка...</div>
+    <div id="message"></div>
 
     <script>
-        const BOT_USERNAME = 'celbretubot';
-        const BOT_LINK_HTTPS = `https://t.me/${BOT_USERNAME}`;
-        const BOT_LINK_TG = `tg://resolve?domain=${BOT_USERNAME}`;
-        
-        const getPlatform = () => {
-            const ua = navigator.userAgent.toLowerCase();
-            if (ua.includes('iphone') || ua.includes('ipad')) return 'ios';
-            if (ua.includes('android')) return 'android';
-            return 'web';
-        };
+        function redirectToBot() {
+            const username = 'celbretubot';
+            const httpsLink = `https://t.me/${username}`;
+            const tgLink = `tg://resolve?domain=${username}`;
 
-        const showMessage = (html) => {
-            const loadingEl = document.getElementById('loading');
-            const messageEl = document.getElementById('message');
-            
-            loadingEl.style.display = 'none';
-            messageEl.style.display = 'block';
-            messageEl.innerHTML = html;
-        };
-
-        const showDebugInfo = (info) => {
-            const debugEl = document.getElementById('debug-info');
-            if (info) {
-                debugEl.textContent = `[DEBUG] ${info}`;
-            }
-        };
-
-        const copyToClipboard = (text, buttonId) => {
-            navigator.clipboard.writeText(text).then(() => {
-                const button = document.getElementById(buttonId);
-                if (button) {
-                    button.textContent = '✓ Скопировано!';
-                    button.classList.add('copied');
-                    setTimeout(() => {
-                        button.textContent = 'Копировать: @' + text;
-                        button.classList.remove('copied');
-                    }, 2000);
-                }
-            }).catch(() => {
-                alert(`Юзернейм: @${text}`);
-            });
-        };
-
-        const showFallbackMethods = () => {
-            const html = `
-                <strong>⚠️ Перенаправление не сработало</strong><br><br>
-                <div class="methods-container">
-                    <div class="method-item">
-                        <div class="method-title">📱 Deep Link</div>
-                        <div class="method-description">Откройте через приложение</div>
-                        <a href="${BOT_LINK_TG}" class="button">Открыть в приложении</a>
-                    </div>
-                    
-                    <div class="method-item">
-                        <div class="method-title">📋 Копировать юзернейм</div>
-                        <div class="method-description">Вставьте в поиск своего клиента</div>
-                        <button class="copy-button" id="copy-username-btn" onclick="copyToClipboard('${BOT_USERNAME}', 'copy-username-btn')">
-                            Копировать: @${BOT_USERNAME}
-                        </button>
-                    </div>
-                    
-                    <div class="method-item">
-                        <div class="method-title">🌐 Веб версия</div>
-                        <div class="method-description">Откройте в браузере</div>
-                        <a href="${BOT_LINK_HTTPS}" class="button">Веб версия</a>
-                    </div>
-                </div>
-            `;
-            return html;
-        };
-
-        const performRedirect = async (webApp) => {
-            showMessage('Переход на бота...');
-            
-            try {
-                // Способ 1: webApp.openTelegramLink
-                if (webApp.openTelegramLink) {
-                    webApp.openTelegramLink(BOT_LINK_HTTPS);
-                    await new Promise(resolve => setTimeout(resolve, 1500));
-                    if (webApp.close) webApp.close();
-                    return;
-                }
-            } catch (error) {
-                console.error('Error in openTelegramLink:', error);
+            // 1. Официальный метод
+            if (Telegram.WebApp.openTelegramLink) {
+                Telegram.WebApp.openTelegramLink(httpsLink);
             }
 
-            try {
-                // Способ 2: Deep Link
-                window.location.href = BOT_LINK_TG;
-                await new Promise(resolve => setTimeout(resolve, 1500));
-            } catch (error) {
-                console.error('Error in deep link:', error);
-            }
+            // 2. Лучший метод для iOS
+            setTimeout(() => {
+                window.location.href = tgLink;
+            }, 180);
 
-            try {
-                // Способ 3: HTTPS ссылка
-                window.location.href = BOT_LINK_HTTPS;
-                await new Promise(resolve => setTimeout(resolve, 1500));
-            } catch (error) {
-                console.error('Error in https link:', error);
-            }
+            // 3. Запасной метод
+            setTimeout(() => {
+                const a = document.createElement('a');
+                a.href = httpsLink;
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }, 450);
 
-            // Если ничего не сработало - показываем fallback
-            await new Promise(resolve => setTimeout(resolve, 2500));
-            showMessage(showFallbackMethods());
-        };
-
-        const handleStartParam = async (webApp) => {
-            const startParam = webApp.initDataUnsafe?.start_param || '';
-            showDebugInfo(`StartParam: ${startParam || 'none'}`);
-
-            if (startParam === 'start') {
-                // АВТОМАТИЧЕСКИЙ РЕДИРЕКТ
-                await performRedirect(webApp);
-            } else {
-                // Только техработы - БЕЗ кнопок
-                showMessage(
-                    `<strong>В приложении проводятся технические работы</strong><br>
-                    Пожалуйста, попробуйте позже.`
-                );
-            }
-        };
+            // 4. Последний шанс
+            setTimeout(() => {
+                window.location.href = httpsLink;
+            }, 750);
+        }
 
         function init() {
+            const loadingDiv = document.getElementById('loading');
+            const messageDiv = document.getElementById('message');
+
+            // Проверка поддержки Mini Apps
             if (typeof Telegram === 'undefined' || !Telegram.WebApp) {
-                setTimeout(init, 100);
+                setTimeout(() => {
+                    loadingDiv.style.display = 'none';
+                    messageDiv.innerHTML = `
+                        Ваша версия Telegram не поддерживает Mini Apps.<br><br>
+                        Перейдите в бота самостоятельно: 
+                        <a href="https://t.me/celbretubot">t.me/celbretubot</a>
+                    `;
+                    messageDiv.style.display = 'block';
+                }, 1000);
                 return;
             }
 
-            try {
-                const webApp = Telegram.WebApp;
-                webApp.ready();
-                webApp.expand();
+            const webApp = Telegram.WebApp;
+            webApp.ready();
+            webApp.expand();
 
-                handleStartParam(webApp);
-            } catch (error) {
-                console.error('Error in init:', error);
-                showMessage(
-                    `<strong>Ошибка инициализации</strong><br>
-                    Пожалуйста, попробуйте позже.`
-                );
+            const startParam = webApp.initDataUnsafe?.start_param || '';
+
+            if (startParam === 'start') {
+                redirectToBot();
+                
+                // Закрываем Mini App
+                setTimeout(() => {
+                    webApp.close();
+                }, 1300);
+            } else {
+                loadingDiv.style.display = 'none';
+                messageDiv.innerHTML = 'В приложении проводятся технические работы.<br>Пожалуйста, попробуйте позже.';
+                messageDiv.style.display = 'block';
             }
         }
 
+        // Запуск
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', init);
         } else {
