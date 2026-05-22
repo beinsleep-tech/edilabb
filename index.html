@@ -6,66 +6,231 @@
     <title>Telegram Mini App</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
         body {
-            font-family: sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            margin: 0;
+            min-height: 100vh;
             background-color: var(--tg-theme-bg-color, #ffffff);
             color: var(--tg-theme-text-color, #000000);
+            padding: 20px;
         }
-        #loading { font-size: 20px; font-weight: 500; }
+        
+        .container {
+            max-width: 340px;
+            text-align: center;
+        }
+        
+        #loading {
+            font-size: 20px;
+            font-weight: 500;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            border-top-color: var(--tg-theme-text-color, #000000);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
         #message {
             display: none;
             font-size: 18px;
-            text-align: center;
+            line-height: 1.5;
             padding: 20px;
-            max-width: 340px;
+        }
+        
+        #message.error {
+            display: block;
+        }
+        
+        #message.success {
+            display: block;
+            color: var(--tg-theme-hint-color, #999);
+            font-size: 16px;
+        }
+        
+        .button {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 12px 24px;
+            background-color: var(--tg-theme-button-color, #0088cc);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            transition: opacity 0.2s;
+        }
+        
+        .button:active {
+            opacity: 0.8;
+        }
+        
+        .debug-info {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+            font-size: 12px;
+            color: var(--tg-theme-hint-color, #999);
         }
     </style>
 </head>
 <body>
-    <div id="loading">Загрузка...</div>
-    <div id="message">В приложении проводятся технические работы.<br>Пожалуйста, попробуйте позже.</div>
+    <div class="container">
+        <div id="loading">
+            <div class="spinner"></div>
+            <div>Загрузка...</div>
+        </div>
+        <div id="message"></div>
+        <div id="debug-info" class="debug-info"></div>
+    </div>
 
     <script>
+        const BOT_USERNAME = 'celbretubot';
+        const BOT_LINK = `https://t.me/${BOT_USERNAME}`;
+        
+        // Детекция платформы и браузера
+        const getPlatform = () => {
+            const ua = navigator.userAgent.toLowerCase();
+            if (ua.includes('iphone') || ua.includes('ipad')) return 'ios';
+            if (ua.includes('android')) return 'android';
+            return 'web';
+        };
+        
+        const isWebView = () => {
+            const ua = navigator.userAgent;
+            return ua.includes('TelegramAndroid') || 
+                   ua.includes('TelegramIphone') ||
+                   ua.includes('Telegram');
+        };
+
+        const showMessage = (text, isError = false) => {
+            const loadingEl = document.getElementById('loading');
+            const messageEl = document.getElementById('message');
+            
+            loadingEl.style.display = 'none';
+            messageEl.style.display = 'block';
+            messageEl.className = isError ? 'error' : 'success';
+            messageEl.innerHTML = text;
+        };
+
+        const showDebugInfo = (info) => {
+            const debugEl = document.getElementById('debug-info');
+            if (info) {
+                debugEl.textContent = `[DEBUG] ${info}`;
+            }
+        };
+
+        const openBotLink = async (platform) => {
+            try {
+                // Способ 1: webApp.openTelegramLink() - самый надёжный для Mini Apps
+                if (typeof Telegram !== 'undefined' && Telegram.WebApp?.openTelegramLink) {
+                    showDebugInfo(`Trying openTelegramLink (${platform})`);
+                    Telegram.WebApp.openTelegramLink(BOT_LINK);
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    return true;
+                }
+
+                // Способ 2: Прямая Telegram ссылка (работает везде)
+                showDebugInfo(`Trying direct link (${platform})`);
+                window.location.href = BOT_LINK;
+                await new Promise(resolve => setTimeout(resolve, 500));
+                return true;
+
+            } catch (error) {
+                console.error('Error opening bot link:', error);
+                showDebugInfo(`Error: ${error.message}`);
+                return false;
+            }
+        };
+
+        const handleStartParam = async (webApp, platform) => {
+            const startParam = webApp.initDataUnsafe?.start_param || '';
+            
+            showDebugInfo(`Platform: ${platform}, StartParam: ${startParam || 'none'}`);
+
+            if (startParam === 'start') {
+                showMessage('Переход на бота...');
+                
+                // Пытаемся открыть ссылку
+                const success = await openBotLink(platform);
+                
+                if (success || platform !== 'web') {
+                    // Для мобильных платформ закрываем приложение через 2 секунды
+                    // Для web - оставляем открытым (может работать fallback)
+                    if (platform !== 'web') {
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        if (webApp.close) webApp.close();
+                    }
+                } else {
+                    // Fallback: показываем кнопку для ручного открытия
+                    showMessage(
+                        `Не удалось перенаправить автоматически.<br><br>
+                        <a href="${BOT_LINK}" class="button">Открыть бота</a>`,
+                        false
+                    );
+                }
+            } else {
+                // Техническое обслуживание или неправильный параметр
+                showMessage(
+                    `В приложении проводятся технические работы.<br>
+                    Пожалуйста, попробуйте позже.<br><br>
+                    <a href="${BOT_LINK}" class="button">Открыть бота</a>`,
+                    false
+                );
+            }
+        };
+
         function init() {
+            // Проверяем, загрузился ли Telegram WebApp API
             if (typeof Telegram === 'undefined' || !Telegram.WebApp) {
-                setTimeout(init, 80);
+                console.log('Telegram WebApp API not loaded yet, retrying...');
+                setTimeout(init, 100);
                 return;
             }
 
-            const webApp = Telegram.WebApp;
-            webApp.ready();
-            webApp.expand();
+            try {
+                const webApp = Telegram.WebApp;
+                webApp.ready();
+                webApp.expand();
 
-            const startParam = webApp.initDataUnsafe?.start_param || '';
-
-            if (startParam === 'start') {
-                const botLink = 'https://t.me/celbretubot';
-                const username = 'celbretubot';
-
-                if (webApp.openTelegramLink) webApp.openTelegramLink(botLink);
-
-                setTimeout(() => window.location.href = `tg://resolve?domain=${username}`, 200);
+                const platform = getPlatform();
+                const inWebView = isWebView();
                 
-                setTimeout(() => {
-                    const a = document.createElement('a');
-                    a.href = botLink;
-                    a.style.display = 'none';
-                    document.body.appendChild(a);
-                    a.click();
-                }, 500);
-
-                setTimeout(() => webApp.close(), 1100);
-            } else {
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('message').style.display = 'block';
+                console.log(`Platform: ${platform}, WebView: ${inWebView}`);
+                
+                handleStartParam(webApp, platform);
+            } catch (error) {
+                console.error('Error in init:', error);
+                showMessage(
+                    `Ошибка инициализации приложения.<br><br>
+                    <a href="${BOT_LINK}" class="button">Открыть бота</a>`,
+                    true
+                );
             }
         }
 
+        // Запускаем инициализацию когда DOM готов
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', init);
         } else {
