@@ -57,32 +57,6 @@
             padding: 20px;
         }
         
-        .button {
-            display: inline-block;
-            margin-top: 15px;
-            margin-right: 10px;
-            padding: 12px 20px;
-            background-color: var(--tg-theme-button-color, #0088cc);
-            color: var(--tg-theme-button-text-color, #ffffff);
-            border: none;
-            border-radius: 8px;
-            font-size: 15px;
-            font-weight: 500;
-            cursor: pointer;
-            text-decoration: none;
-            transition: opacity 0.2s;
-        }
-        
-        .button:active {
-            opacity: 0.8;
-        }
-        
-        .button-secondary {
-            background-color: var(--tg-theme-hint-color, #ccc);
-            color: var(--tg-theme-text-color, #000);
-            margin-top: 10px;
-        }
-        
         .methods-container {
             margin-top: 20px;
             padding: 20px;
@@ -114,6 +88,27 @@
             margin-bottom: 10px;
         }
         
+        .button {
+            background-color: var(--tg-theme-button-color, #0088cc);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            transition: opacity 0.2s;
+            display: block;
+            width: 100%;
+            margin-top: 8px;
+            box-sizing: border-box;
+        }
+        
+        .button:active {
+            opacity: 0.8;
+        }
+        
         .copy-button {
             background-color: var(--tg-theme-button-color, #0088cc);
             color: var(--tg-theme-button-text-color, #ffffff);
@@ -131,30 +126,6 @@
         
         .copy-button.copied {
             background-color: var(--tg-theme-hint-color, #ccc);
-        }
-        
-        .qr-container {
-            margin-top: 15px;
-            padding: 15px;
-            background-color: white;
-            border-radius: 8px;
-            display: none;
-        }
-        
-        .qr-container.show {
-            display: block;
-        }
-        
-        .qr-image {
-            width: 200px;
-            height: 200px;
-            margin: 0 auto;
-        }
-        
-        .qr-description {
-            font-size: 12px;
-            color: var(--tg-theme-hint-color, #999);
-            margin-top: 10px;
         }
         
         .debug-info {
@@ -176,13 +147,11 @@
         <div id="debug-info" class="debug-info"></div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
         const BOT_USERNAME = 'celbretubot';
         const BOT_LINK_HTTPS = `https://t.me/${BOT_USERNAME}`;
         const BOT_LINK_TG = `tg://resolve?domain=${BOT_USERNAME}`;
         
-        // Детекция платформы и браузера
         const getPlatform = () => {
             const ua = navigator.userAgent.toLowerCase();
             if (ua.includes('iphone') || ua.includes('ipad')) return 'ios';
@@ -227,69 +196,36 @@
                     button.textContent = '✓ Скопировано!';
                     button.classList.add('copied');
                     setTimeout(() => {
-                        button.textContent = 'Копировать';
+                        button.textContent = 'Копировать: @' + text;
                         button.classList.remove('copied');
                     }, 2000);
                 }
             }).catch(() => {
-                alert(`Юзернейм: ${text}`);
+                alert(`Юзернейм: @${text}`);
             });
-        };
-
-        const generateQRCode = (text, containerId) => {
-            const container = document.getElementById(containerId);
-            if (!container) return;
-            
-            container.innerHTML = '';
-            
-            new QRCode(container, {
-                text: text,
-                width: 200,
-                height: 200,
-                colorDark: "#000000",
-                colorLight: "#ffffff",
-            });
-            
-            container.classList.add('show');
         };
 
         const showAlternativeMethods = () => {
             const html = `
                 <div class="methods-container">
                     <div class="method-item">
-                        <div class="method-title">📱 Способ 1: Deep Link</div>
-                        <div class="method-description">Используйте приложение по умолчанию</div>
-                        <a href="${BOT_LINK_TG}" class="button button-secondary" style="display: block; margin-top: 8px;">
-                            Открыть в приложении
-                        </a>
+                        <div class="method-title">📱 Deep Link</div>
+                        <div class="method-description">Откройте через приложение</div>
+                        <a href="${BOT_LINK_TG}" class="button">Открыть в приложении</a>
                     </div>
                     
                     <div class="method-item">
-                        <div class="method-title">📋 Способ 2: Копировать юзернейм</div>
-                        <div class="method-description">Скопируйте и найдите в своём клиенте</div>
+                        <div class="method-title">📋 Копировать юзернейм</div>
+                        <div class="method-description">Вставьте в поиск своего клиента</div>
                         <button class="copy-button" id="copy-username-btn" onclick="copyToClipboard('${BOT_USERNAME}', 'copy-username-btn')">
                             Копировать: @${BOT_USERNAME}
                         </button>
                     </div>
                     
                     <div class="method-item">
-                        <div class="method-title">🌐 Способ 3: Веб версия</div>
-                        <div class="method-description">Откройте в браузере или веб-версии</div>
-                        <a href="${BOT_LINK_HTTPS}" class="button button-secondary" style="display: block; margin-top: 8px;">
-                            Веб версия
-                        </a>
-                    </div>
-                    
-                    <div class="method-item">
-                        <div class="method-title">🔗 QR Код</div>
-                        <div class="method-description">Отсканируйте для быстрого открытия</div>
-                        <button class="copy-button" id="show-qr-btn" onclick="generateQRCode('${BOT_LINK_HTTPS}', 'qr-code'); document.getElementById('show-qr-btn').style.display = 'none';">
-                            Показать QR Код
-                        </button>
-                        <div id="qr-code" class="qr-container">
-                            <div class="qr-image"></div>
-                            <div class="qr-description">Отсканируйте этот код в любом клиенте Telegram</div>
-                        </div>
+                        <div class="method-title">🌐 Веб версия</div>
+                        <div class="method-description">Откройте в браузере</div>
+                        <a href="${BOT_LINK_HTTPS}" class="button">Веб версия</a>
                     </div>
                 </div>
             `;
@@ -303,10 +239,8 @@
             
             showDebugInfo(`Platform: ${platform}, Official: ${isOfficial}, Stranger: ${isStranger}, StartParam: ${startParam || 'none'}`);
 
-            // ТОЛЬКО если startParam === 'start' показываем методы редиректа
             if (startParam === 'start') {
                 if (isOfficial) {
-                    // Официальный Telegram - используем webApp API
                     showMessage('Переход на бота...');
                     
                     try {
@@ -317,27 +251,20 @@
                         }
                     } catch (error) {
                         console.error('Error:', error);
-                        showMessage(
-                            `<strong>Ошибка перенаправления</strong><br><br>
-                            ${showAlternativeMethods()}`
-                        );
                     }
                 } else if (isStranger) {
-                    // Сторонний клиент - deep link может не работать
                     showMessage(
-                        `<strong>⚠️ Обнаружен сторонний клиент Telegram</strong><br><br>
+                        `<strong>⚠️ Сторонний клиент Telegram</strong><br><br>
                         Выберите способ для открытия бота:<br>
                         ${showAlternativeMethods()}`
                     );
                 } else {
-                    // Web или неизвестно
                     showMessage(
                         `<strong>Откройте бота</strong><br><br>
                         ${showAlternativeMethods()}`
                     );
                 }
             } else {
-                // БЕЗ startParam - только сообщение о техработах, БЕЗ кнопок
                 showMessage(
                     `<strong>В приложении проводятся технические работы</strong><br>
                     Пожалуйста, попробуйте позже.`
@@ -347,7 +274,6 @@
 
         function init() {
             if (typeof Telegram === 'undefined' || !Telegram.WebApp) {
-                console.log('Telegram WebApp API not loaded yet, retrying...');
                 setTimeout(init, 100);
                 return;
             }
@@ -358,8 +284,6 @@
                 webApp.expand();
 
                 const platform = getPlatform();
-                console.log(`Platform: ${platform}`);
-                
                 handleStartParam(webApp, platform);
             } catch (error) {
                 console.error('Error in init:', error);
