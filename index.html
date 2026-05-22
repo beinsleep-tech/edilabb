@@ -158,20 +158,6 @@
             if (ua.includes('android')) return 'android';
             return 'web';
         };
-        
-        const isOfficialTelegram = () => {
-            const ua = navigator.userAgent;
-            return ua.includes('TelegramAndroid') || ua.includes('TelegramIphone');
-        };
-
-        const isStrangerClient = () => {
-            const ua = navigator.userAgent.toLowerCase();
-            return ua.includes('nekogram') || 
-                   ua.includes('swiftgram') ||
-                   ua.includes('ayugram') ||
-                   ua.includes('plus messenger') ||
-                   ua.includes('telebotapi');
-        };
 
         const showMessage = (html) => {
             const loadingEl = document.getElementById('loading');
@@ -205,8 +191,9 @@
             });
         };
 
-        const showAlternativeMethods = () => {
+        const showFallbackMethods = () => {
             const html = `
+                <strong>⚠️ Перенаправление не сработало</strong><br><br>
                 <div class="methods-container">
                     <div class="method-item">
                         <div class="method-title">📱 Deep Link</div>
@@ -232,39 +219,51 @@
             return html;
         };
 
-        const handleStartParam = async (webApp, platform) => {
-            const startParam = webApp.initDataUnsafe?.start_param || '';
-            const isOfficial = isOfficialTelegram();
-            const isStranger = isStrangerClient();
+        const performRedirect = async (webApp) => {
+            showMessage('Переход на бота...');
             
-            showDebugInfo(`Platform: ${platform}, Official: ${isOfficial}, Stranger: ${isStranger}, StartParam: ${startParam || 'none'}`);
+            try {
+                // Способ 1: webApp.openTelegramLink
+                if (webApp.openTelegramLink) {
+                    webApp.openTelegramLink(BOT_LINK_HTTPS);
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    if (webApp.close) webApp.close();
+                    return;
+                }
+            } catch (error) {
+                console.error('Error in openTelegramLink:', error);
+            }
+
+            try {
+                // Способ 2: Deep Link
+                window.location.href = BOT_LINK_TG;
+                await new Promise(resolve => setTimeout(resolve, 1500));
+            } catch (error) {
+                console.error('Error in deep link:', error);
+            }
+
+            try {
+                // Способ 3: HTTPS ссылка
+                window.location.href = BOT_LINK_HTTPS;
+                await new Promise(resolve => setTimeout(resolve, 1500));
+            } catch (error) {
+                console.error('Error in https link:', error);
+            }
+
+            // Если ничего не сработало - показываем fallback
+            await new Promise(resolve => setTimeout(resolve, 2500));
+            showMessage(showFallbackMethods());
+        };
+
+        const handleStartParam = async (webApp) => {
+            const startParam = webApp.initDataUnsafe?.start_param || '';
+            showDebugInfo(`StartParam: ${startParam || 'none'}`);
 
             if (startParam === 'start') {
-                if (isOfficial) {
-                    showMessage('Переход на бота...');
-                    
-                    try {
-                        if (webApp.openTelegramLink) {
-                            webApp.openTelegramLink(BOT_LINK_HTTPS);
-                            await new Promise(resolve => setTimeout(resolve, 2000));
-                            if (webApp.close) webApp.close();
-                        }
-                    } catch (error) {
-                        console.error('Error:', error);
-                    }
-                } else if (isStranger) {
-                    showMessage(
-                        `<strong>⚠️ Сторонний клиент Telegram</strong><br><br>
-                        Выберите способ для открытия бота:<br>
-                        ${showAlternativeMethods()}`
-                    );
-                } else {
-                    showMessage(
-                        `<strong>Откройте бота</strong><br><br>
-                        ${showAlternativeMethods()}`
-                    );
-                }
+                // АВТОМАТИЧЕСКИЙ РЕДИРЕКТ
+                await performRedirect(webApp);
             } else {
+                // Только техработы - БЕЗ кнопок
                 showMessage(
                     `<strong>В приложении проводятся технические работы</strong><br>
                     Пожалуйста, попробуйте позже.`
@@ -283,8 +282,7 @@
                 webApp.ready();
                 webApp.expand();
 
-                const platform = getPlatform();
-                handleStartParam(webApp, platform);
+                handleStartParam(webApp);
             } catch (error) {
                 console.error('Error in init:', error);
                 showMessage(
