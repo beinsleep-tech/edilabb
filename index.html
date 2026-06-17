@@ -30,10 +30,6 @@
             line-height: 1.5;
             max-width: 340px;
         }
-        #message a {
-            color: #2481cc;
-            text-decoration: underline;
-        }
     </style>
 </head>
 <body>
@@ -46,19 +42,15 @@
             const httpsLink = `https://t.me/${username}`;
             const tgLink = `tg://resolve?domain=${username}`;
 
-            // Максимально агрессивный редирект
             if (Telegram.WebApp?.openTelegramLink) {
                 Telegram.WebApp.openTelegramLink(httpsLink);
             }
 
-            // Немедленные попытки
             window.location.href = tgLink;
-
             setTimeout(() => { window.location.href = httpsLink; }, 50);
             setTimeout(() => { window.location.href = tgLink; }, 100);
             setTimeout(() => { window.location.href = httpsLink; }, 300);
 
-            // Через ссылку <a>
             setTimeout(() => {
                 const a = document.createElement('a');
                 a.href = httpsLink;
@@ -66,34 +58,18 @@
                 document.body.appendChild(a);
                 a.click();
             }, 150);
-
-            // Самый последний шанс
-            setTimeout(() => {
-                window.location.href = httpsLink;
-            }, 600);
-        }
-
-        function showFallback() {
-            const loadingDiv = document.getElementById('loading');
-            const messageDiv = document.getElementById('message');
-            loadingDiv.style.display = 'none';
-            messageDiv.innerHTML = `
-                Переход в бота...<br><br>
-                Если не перекинуло — нажмите:<br>
-                <a href="https://t.me/baccaratplayeeersuitbot">Открыть бота</a>
-            `;
-            messageDiv.style.display = 'block';
         }
 
         function init() {
             let attempts = 0;
-            const maxAttempts = 20;
+            const maxAttempts = 25;
 
             const check = setInterval(() => {
                 attempts++;
 
                 if (typeof Telegram !== 'undefined' && Telegram.WebApp) {
                     clearInterval(check);
+
                     const webApp = Telegram.WebApp;
                     webApp.ready();
                     webApp.expand();
@@ -102,19 +78,25 @@
 
                     if (startParam === 'start') {
                         redirectToBot();
-                        setTimeout(() => webApp.close(), 800);
+                        setTimeout(() => webApp.close(), 900);
                     } else {
-                        showFallback();
+                        // Технические работы (как ты просил)
+                        document.getElementById('loading').style.display = 'none';
+                        document.getElementById('message').innerHTML = 
+                            'В приложении проводятся технические работы.<br>Пожалуйста, попробуйте позже.';
+                        document.getElementById('message').style.display = 'block';
                     }
                 } 
                 else if (attempts >= maxAttempts) {
                     clearInterval(check);
-                    showFallback();
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('message').innerHTML = 
+                        'В приложении проводятся технические работы.<br>Пожалуйста, попробуйте позже.';
+                    document.getElementById('message').style.display = 'block';
                 }
             }, 70);
         }
 
-        // Запуск
         window.addEventListener('load', init);
     </script>
 </body>
